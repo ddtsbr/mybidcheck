@@ -1,8 +1,11 @@
 import os
 import json
+import time
+import base64
+import httpx
 import anthropic
 import sendgrid
-from sendgrid.helpers.mail import Mail, To
+from sendgrid.helpers.mail import Mail
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -12,7 +15,12 @@ SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
 FROM_EMAIL = "support@mybidcheck.com"
 NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "support@mybidcheck.com")
 
-def analyze_quote(name, region, service_type, quote_text):
+def download_file(url):
+    response = httpx.get(url, timeout=30)
+    return response.content, response.headers.get("content-type", "image/jpeg")
+
+
+def analyze_quote(name, region, service_type, quote_text, file_url=None, retries=3, delay=5):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     prompt = f"""You are an expert contractor quote analyzer for MyBidCheck. A homeowner named {name} in {region} has submitted a {service_type} quote for analysis.
@@ -39,15 +47,22 @@ The JSON must have exactly this structure:
 Here is the quote:
 {quote_text}"""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    raw = message.content[0].text.strip()
-    clean = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(clean)
+    for attempt in range(retries):
+        try:
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            raw = message.content[0].text.strip()
+            clean = raw.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean)
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < retries - 1:
+                time.sleep(delay * (attempt + 1))
+            else:
+                raise e
 
 
 def build_email_html(name, service_type, result):
@@ -156,7 +171,45 @@ def build_email_html(name, service_type, result):
 </html>"""
 
 
-def send_report_email(customer_email, customer_name, service_type, result):
+def send_fallback_email(customer_email, customer_name, service_type):
+    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+    message = Mail(
+        from_email=FROM_EMAIL,
+        to_emails=customer_email,
+        subject=f"Your MyBidCheck Report — {service_type}",
+        html_content=f"""
+        <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td align="center" style="padding:32px 16px;">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="background:#1a1a18;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <span style="font-family:Georgia,serif;font-size:26px;color:#fff;">My<span style="color:#c85a1e;">Bid</span>Check</span>
+        </td></tr>
+        <tr><td style="background:#fff;padding:32px;border-radius:0 0 10px 10px;">
+          <p style="font-size:16px;color:#4a4a46;">Hi <strong>{customer_name}</strong>,</p>
+          <p style="font-size:16px;color:#4a4a46;">We received your {service_type} quote and are experiencing higher than normal demand right now. Your report will be delivered within the hour.</p>
+          <p style="font-size:16px;color:#4a4a46;">We apologize for the delay. If you don't hear from us within 60 minutes, please email <a href="mailto:support@mybidcheck.com" style="color:#c85a1e;">support@mybidcheck.com</a> and we'll prioritize your report immediately.</p>
+          <p style="font-size:14px;color:#8a8a84;">Thank you for your patience.</p>
+        </td></tr>
+        </table></td></tr></table>"""
+    )
+    sg.send(message)
+
+
+def send_failure_alert(customer_name, customer_email, service_type, error):
+    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+    message = Mail(
+        from_email=FROM_EMAIL,
+        to_emails=NOTIFY_EMAIL,
+        subject=f"FAILED REPORT — Action needed: {customer_name} ({service_type})",
+        html_content=f"""
+        <p><strong style="color:red;">Report generation failed after 3 retries!</strong></p>
+        <p>Customer: {customer_name} ({customer_email})</p>
+        <p>Service: {service_type}</p>
+        <p>Error: {error}</p>
+        <p>The customer has been sent a delay notice. Please process their report manually ASAP.</p>
+        """
+    )
+    sg.send(message)
     sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
     html = build_email_html(customer_name, service_type, result)
 
@@ -233,9 +286,14 @@ def webhook():
         if not customer_email or not quote_text:
             return jsonify({"error": "Missing required fields"}), 400
 
-        result = analyze_quote(customer_name, region, service_type, quote_text)
-        send_report_email(customer_email, customer_name, service_type, result)
-        send_notification_email(customer_name, customer_email, service_type, result)
+        try:
+            result = analyze_quote(customer_name, region, service_type, quote_text)
+            send_report_email(customer_email, customer_name, service_type, result)
+            send_notification_email(customer_name, customer_email, service_type, result)
+        except Exception as analysis_error:
+            print(f"Analysis failed after retries: {analysis_error}")
+            send_fallback_email(customer_email, customer_name, service_type)
+            send_failure_alert(customer_name, customer_email, service_type, str(analysis_error))
 
         return jsonify({"success": True}), 200
 
