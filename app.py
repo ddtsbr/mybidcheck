@@ -49,10 +49,30 @@ Here is the quote:
 
     for attempt in range(retries):
         try:
+            if file_url and not quote_text:
+                file_bytes, media_type = download_file(file_url)
+                b64 = base64.standard_b64encode(file_bytes).decode("utf-8")
+                if "pdf" in media_type:
+                    media_type = "application/pdf"
+                    source = {"type": "base64", "media_type": media_type, "data": b64}
+                    content = [
+                        {"type": "document", "source": source},
+                        {"type": "text", "text": prompt}
+                    ]
+                else:
+                    media_type = "image/jpeg"
+                    source = {"type": "base64", "media_type": media_type, "data": b64}
+                    content = [
+                        {"type": "image", "source": source},
+                        {"type": "text", "text": prompt}
+                    ]
+            else:
+                content = prompt
+
             message = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1500,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": content}]
             )
             raw = message.content[0].text.strip()
             clean = raw.replace("```json", "").replace("```", "").strip()
@@ -269,6 +289,7 @@ def webhook():
         region = ""
         service_type = ""
         quote_text = ""
+        file_url = ""
 
         for title, answer in field_map.items():
             val = get_answer(answer)
@@ -282,12 +303,16 @@ def webhook():
                 service_type = val
             elif "quote" in title or "paste" in title or "detail" in title:
                 quote_text = val
+            elif "upload" in title or "document" in title or "file" in title:
+                answer_obj = field_map.get(title, {})
+                if answer_obj.get("type") == "file_url":
+                    file_url = answer_obj.get("file_url", "")
 
-        if not customer_email or not quote_text:
+        if not customer_email or (not quote_text and not file_url):
             return jsonify({"error": "Missing required fields"}), 400
 
         try:
-            result = analyze_quote(customer_name, region, service_type, quote_text)
+            result = analyze_quote(customer_name, region, service_type, quote_text, file_url)
             send_report_email(customer_email, customer_name, service_type, result)
             send_notification_email(customer_name, customer_email, service_type, result)
         except Exception as analysis_error:
