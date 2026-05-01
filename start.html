@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyBidCheck — Get a Second Opinion on Your Contractor Quote</title>
+<meta name="description" content="Quote feels high? Upload your contractor quote and get a line-by-line review with regional pricing and a custom negotiation script. $9, results in minutes.">
+<meta name="robots" content="noindex, follow">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a18;
+    --ink2: #4a4a46;
+    --ink3: #8a8a84;
+    --paper: #f7f5f0;
+    --paper2: #edeae3;
+    --accent: #c85a1e;
+    --accent2: #e8d5c4;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+    --radius: 10px;
+    --max: 580px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem; }
+
+  /* MINIMAL HEADER — just a logo, no nav */
+  header {
+    padding: 1.5rem 0 0.5rem;
+    text-align: center;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 2.5rem 0 2rem;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(34px, 6.5vw, 52px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 1.25rem;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-size: 18px;
+    color: var(--ink2);
+    max-width: 460px;
+    margin: 0 auto 2.25rem;
+    line-height: 1.6;
+  }
+
+  /* CTA BLOCK */
+  .cta-block {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: var(--radius);
+    padding: 2rem;
+    max-width: 420px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .cta-block-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  .cta-price {
+    font-family: var(--serif);
+    font-size: 42px;
+    color: var(--paper);
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    text-align: center;
+  }
+  .cta-price sub {
+    font-family: var(--sans);
+    font-size: 15px;
+    color: var(--ink3);
+    font-weight: 400;
+    vertical-align: baseline;
+  }
+  .cta-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 1.25rem;
+    text-align: center;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .cta-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+  .cta-fine {
+    font-size: 12px;
+    color: var(--ink3);
+    margin-top: 0.75rem;
+    text-align: center;
+  }
+
+  /* TRUST ROW */
+  .trust-row {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1.75rem;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--ink2);
+  }
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .trust-item svg {
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* HOW IT WORKS — condensed */
+  .how-section {
+    margin: 4rem 0 3rem;
+  }
+  .how-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .step {
+    background: #fff;
+    border: 1px solid var(--paper2);
+    border-radius: var(--radius);
+    padding: 1.25rem 1rem;
+    text-align: center;
+  }
+  .step-num {
+    font-family: var(--serif);
+    font-size: 24px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .step-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 0.35rem;
+  }
+  .step-desc {
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.5;
+  }
+
+  /* PROMISE BAND */
+  .promise {
+    background: var(--paper2);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    margin: 0 0 3rem;
+    text-align: center;
+  }
+  .promise-text {
+    font-family: var(--serif);
+    font-size: 19px;
+    color: var(--ink);
+    line-height: 1.4;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .promise-text em { color: var(--accent); font-style: italic; }
+
+  /* SECONDARY CTA */
+  .secondary-cta {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+  .secondary-cta a {
+    display: inline-block;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .secondary-cta a:hover { opacity: 0.92; transform: translateY(-1px); }
+  .secondary-cta .fine {
+    font-size: 13px;
+    color: var(--ink3);
+    margin-top: 0.75rem;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink3);
+    padding: 1.5rem 0 2rem;
+    border-top: 1px solid var(--paper2);
+    line-height: 1.7;
+  }
+  footer a { color: var(--ink3); text-decoration: none; }
+  footer a:hover { color: var(--ink2); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-eyebrow { animation: fadeUp 0.5s ease both; }
+  .hero h1 { animation: fadeUp 0.5s ease 0.05s both; }
+  .hero-sub { animation: fadeUp 0.5s ease 0.1s both; }
+  .cta-block { animation: fadeUp 0.5s ease 0.15s both; }
+  .trust-row { animation: fadeUp 0.5s ease 0.2s both; }
+
+  /* MOBILE */
+  @media (max-width: 520px) {
+    .steps { grid-template-columns: 1fr; gap: 0.75rem; }
+    .step { display: flex; gap: 1rem; align-items: center; text-align: left; padding: 1rem; }
+    .step-num { margin-bottom: 0; flex-shrink: 0; min-width: 32px; }
+    .hero { padding: 1.5rem 0 1.5rem; }
+    .trust-row { gap: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <svg width="160" height="32" viewBox="-8 2 316 52" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="6" width="46" height="46" rx="5" fill="none" stroke="#c85a1e" stroke-width="2.5"/>
+      <path d="M10 29 L20 41 L36 20" stroke="#c85a1e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <text x="58" y="42" font-family="Georgia,serif" font-size="40" fill="#1a1a18">My<tspan font-weight="700" fill="#c85a1e">Bid</tspan>Check</text>
+    </svg>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">AI-powered second opinion</div>
+    <h1>Quote feels high?<br><em>Get a second opinion.</em></h1>
+    <p class="hero-sub">Upload your contractor quote. We'll send back a line-by-line review with regional price ranges and a custom negotiation script.</p>
+
+    <div class="cta-block">
+      <div class="cta-block-label">One quote. One report.</div>
+      <div class="cta-price">$9 <sub>per report — results within minutes</sub></div>
+      <a href="https://buy.stripe.com/5kQ5kE4iJeI67Dccc9co000" class="cta-btn">Upload my quote now</a>
+      <div class="cta-fine">PDF, photo, or screenshot. Works for any home service.</div>
+    </div>
+
+    <div class="trust-row">
+      <div class="trust-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Results in 5 minutes
+      </div>
+      <div class="trust-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        No subscription
+      </div>
+      <div class="trust-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        100% on your side
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-section">
+    <div class="how-label">How it works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Upload</div>
+          <div class="step-desc">PDF, photo, or paste the text. Any home service.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">We review</div>
+          <div class="step-desc">AI compares each line item to regional pricing data.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">You decide</div>
+          <div class="step-desc">Get your report and a ready-to-send negotiation script.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROMISE -->
+  <div class="promise">
+    <div class="promise-text">We work for <em>you</em> — never for contractors. Your quote is never shared, sold, or used to contact anyone.</div>
+  </div>
+
+  <!-- SECONDARY CTA -->
+  <div class="secondary-cta">
+    <a href="https://buy.stripe.com/5kQ5kE4iJeI67Dccc9co000">Get my report for $9</a>
+    <div class="fine">No account required. Just answers.</div>
+  </div>
+
+  <footer>
+    &copy; 2026 MyBidCheck &nbsp;·&nbsp;
+    <a href="terms.html">Terms</a> &nbsp;·&nbsp;
+    <a href="privacy.html">Privacy</a> &nbsp;·&nbsp;
+    <a href="mailto:support@mybidcheck.com">support@mybidcheck.com</a>
+  </footer>
+</div>
+
+</body>
+</html>
