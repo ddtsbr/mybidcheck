@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MyBidCheck — Know Before You Negotiate</title>
+<title>MyBidCheck — Know What's Fair Before You Sign</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -264,8 +264,8 @@
     font-weight: 500;
     padding: 4px 10px;
     border-radius: 20px;
-    background: var(--danger-bg);
-    color: var(--danger);
+    background: var(--warn-bg);
+    color: var(--warn);
   }
   .report-row {
     display: flex;
@@ -414,8 +414,8 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-eyebrow">AI-powered quote analysis</div>
-    <h1>The contractor knows the price.<br><em>Now you will too.</em></h1>
-    <p class="hero-sub">Upload any contractor quote and get a plain-English breakdown of what's fair, what's inflated, and exactly what to say to negotiate.</p>
+    <h1>Know what's fair.<br><em>Before you sign.</em></h1>
+    <p class="hero-sub">Upload any contractor quote and get a plain-English breakdown, regional price ranges, and a custom negotiation script — all in minutes.</p>
 
     <div class="cta-block">
       <div class="cta-block-label">Analyze your quote</div>
@@ -438,22 +438,21 @@
   <hr class="divider" id="how">
 
   <!-- STATS -->
-  <div class="section-label">Why it matters</div>
+  <div class="section-label">Why homeowners use MyBidCheck</div>
   <div class="stats">
     <div class="stat">
-      <div class="stat-num">78%</div>
-      <div class="stat-desc">of homeowners go over budget on contractor work*</div>
+      <div class="stat-num">5 min</div>
+      <div class="stat-desc">average time from upload to delivered report</div>
     </div>
     <div class="stat">
-      <div class="stat-num">53%</div>
-      <div class="stat-desc">who hired contractors exceeded their original budget*</div>
+      <div class="stat-num">1 quote</div>
+      <div class="stat-desc">all you need — no comparison shopping required</div>
     </div>
     <div class="stat">
-      <div class="stat-num">$0</div>
-      <div class="stat-desc">hidden fees — we are 100% on your side</div>
+      <div class="stat-num">100%</div>
+      <div class="stat-desc">on the homeowner's side — never shared with contractors</div>
     </div>
   </div>
-  <p style="font-size:12px;color:var(--ink3);margin-bottom:2rem;">*Source: Clever Real Estate</p>
 
   <!-- HOW IT WORKS -->
   <div class="section-label">How it works</div>
@@ -468,15 +467,15 @@
     <div class="step">
       <div class="step-num">2</div>
       <div>
-        <div class="step-title">AI reads every line item</div>
-        <div class="step-desc">We check for inflated labor, unnecessary add-ons, duplicate charges, and vague line items that are easy to hide fees inside.</div>
+        <div class="step-title">AI reviews every line item</div>
+        <div class="step-desc">We compare each charge to regional pricing data and flag items that fall outside typical ranges or could benefit from clarification.</div>
       </div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <div>
         <div class="step-title">Get your report + negotiation script</div>
-        <div class="step-desc">Fair price range, red flags called out, and a ready-to-send message personalized to your exact quote. Copy and send.</div>
+        <div class="step-desc">Fair price ranges, items worth questioning, and a ready-to-send message tailored to your exact quote. Copy and send.</div>
       </div>
     </div>
   </div>
@@ -488,23 +487,23 @@
   <div class="report-card">
     <div class="report-header">
       <div class="report-header-left">Quote submitted: <span>$6,200</span> &nbsp;·&nbsp; Typical range: <span>$3,800–$4,800</span></div>
-      <div class="verdict">Overpriced by ~30%</div>
+      <div class="verdict">~30% above typical range</div>
     </div>
     <div class="report-row">
       <div class="report-item">Insulation removal (1,100 sq ft)<small>Typical: $800–$1,200 · Quoted: $1,100</small></div>
-      <span class="tag tag-ok">Fair</span>
+      <span class="tag tag-ok">Within range</span>
     </div>
     <div class="report-row">
-      <div class="report-item">Sanitization fee<small>Usually bundled — charged separately here</small></div>
-      <span class="tag tag-warn">Markup</span>
+      <div class="report-item">Sanitization fee<small>Often bundled with other services — listed separately here</small></div>
+      <span class="tag tag-warn">Worth asking about</span>
     </div>
     <div class="report-row">
       <div class="report-item">Rodent entry sealing (6 points)<small>Typical: $300–$500 · Quoted: $900</small></div>
-      <span class="tag tag-danger">Overpriced</span>
+      <span class="tag tag-danger">Above typical range</span>
     </div>
     <div class="report-row">
       <div class="report-item">Re-insulation R-38 blown-in<small>Typical: $1,800–$2,400 · Quoted: $2,100</small></div>
-      <span class="tag tag-ok">Fair</span>
+      <span class="tag tag-ok">Within range</span>
     </div>
   </div>
 
@@ -512,7 +511,7 @@
   <div class="section-label">Your negotiation script</div>
   <div class="script-box">
     <div class="script-label">Copy and send to your contractor</div>
-    <div class="script-text">"Thanks for the quote. I'm seeing similar attic remediation jobs in my area priced closer to $4,200–$4,800. Could you break down the sanitization fee and the entry-point sealing costs further? I'd love to move forward if we can get closer to that range."</div>
+    <div class="script-text">"Thanks for the quote. I'm seeing similar attic remediation jobs in my area priced closer to $4,200–$4,800. Could you walk me through the sanitization fee and the entry-point sealing costs? I'd love to move forward if we can get closer to that range."</div>
   </div>
 
   <!-- CATEGORIES -->
@@ -533,7 +532,7 @@
   <div class="faq">
     <div class="faq-item">
       <div class="faq-q">What do I get for $9?</div>
-      <div class="faq-a">A full line-item analysis of your quote, a fair price range for your region, red flags called out in plain English, and a copy-paste negotiation script tailored to your exact quote.</div>
+      <div class="faq-a">A full line-item analysis of your quote, a fair price range for your region, items worth asking about explained in plain English, and a copy-paste negotiation script tailored to your exact quote.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">How accurate are the price ranges?</div>
@@ -555,8 +554,8 @@
 
   <!-- BOTTOM CTA -->
   <div class="bottom-cta">
-    <h2>Stop guessing.<br>Start negotiating.</h2>
-    <p>One report. Nine dollars. Real leverage.</p>
+    <h2>Get clarity.<br>In 5 minutes.</h2>
+    <p>One quote. One report. Real answers.</p>
     <a href="https://buy.stripe.com/5kQ5kE4iJeI67Dccc9co000" class="cta-btn" style="max-width:320px;margin:0 auto;display:block;">Analyze my quote for $9</a>
   </div>
 
@@ -565,4 +564,9 @@
     &copy; 2026 MyBidCheck &nbsp;·&nbsp;
     <a href="terms.html" style="color:var(--ink3)">Terms of Service</a> &nbsp;·&nbsp;
     <a href="privacy.html" style="color:var(--ink3)">Privacy Policy</a> &nbsp;·&nbsp;
-    <a href="/cdn-cgi/l/email-protection#d4a7a1a4a4bba6a094b9adb6bdb0b7bcb1b7bffab7bbb9" style="color:var(--ink3)"><span class="__cf_
+    <a href="mailto:support@mybidcheck.com" style="color:var(--ink3)">support@mybidcheck.com</a>
+  </footer>
+</div>
+
+</body>
+</html>
