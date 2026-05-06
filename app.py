@@ -468,7 +468,7 @@ def stripe_webhook():
         except ValueError as e:
             print(f"Stripe webhook: invalid payload: {e}")
             return jsonify({"error": "Invalid payload"}), 400
-        except stripe.error.SignatureVerificationError as e:
+        except stripe.SignatureVerificationError as e:
             print(f"Stripe webhook: signature verification failed: {e}")
             return jsonify({"error": "Invalid signature"}), 400
 
