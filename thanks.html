@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thanks — MyBidCheck</title>
-
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18133112025"></script>
 <script>
@@ -13,7 +12,6 @@
   gtag('js', new Date());
   gtag('config', 'AW-18133112025');
 </script>
-
 <!-- Event snippet for MyBidCheck Purchase conversion -->
 <script>
   gtag('event', 'conversion', {
@@ -23,14 +21,6 @@
     'transaction_id': ''
   });
 </script>
-
-<!-- Redirect to Typeform after 2.5 seconds -->
-<script>
-  setTimeout(function() {
-    window.location.href = 'https://form.typeform.com/to/SzCuiClJ';
-  }, 2500);
-</script>
-
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -81,32 +71,17 @@
     margin-top: 24px;
   }
   .small a {
-    color: #2563eb;
+    color: #c85a1e;
     text-decoration: none;
-  }
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid #e5e7eb;
-    border-top-color: #2563eb;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
-    vertical-align: middle;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
   }
 </style>
 </head>
 <body>
   <div class="card">
     <div class="check">✓</div>
-    <h1>Payment received</h1>
-    <p>Thanks for your purchase. We're taking you to the quote upload form now.</p>
-    <p class="small"><span class="spinner"></span>Redirecting&hellip;</p>
-    <p class="small">Not redirected? <a href="https://form.typeform.com/to/SzCuiClJ">Click here to continue.</a></p>
+    <h1>Payment confirmed</h1>
+    <p>Your report is being generated and will arrive in your inbox within 5 minutes.</p>
+    <p class="small">Don't see it? Check your spam folder, or email <a href="mailto:support@mybidcheck.com">support@mybidcheck.com</a>.</p>
   </div>
 </body>
 </html>
