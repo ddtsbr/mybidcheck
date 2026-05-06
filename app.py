@@ -457,6 +457,7 @@ def typeform_webhook():
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     """Receive Stripe payment confirmations and trigger report generation."""
+    import traceback
     try:
         payload = request.data
         sig_header = request.headers.get("Stripe-Signature", "")
@@ -465,12 +466,12 @@ def stripe_webhook():
             event = stripe.Webhook.construct_event(
                 payload, sig_header, STRIPE_WEBHOOK_SECRET
             )
-        except ValueError as e:
-            print(f"Stripe webhook: invalid payload: {e}")
-            return jsonify({"error": "Invalid payload"}), 400
-        except stripe.SignatureVerificationError as e:
-            print(f"Stripe webhook: signature verification failed: {e}")
-            return jsonify({"error": "Invalid signature"}), 400
+        except Exception as verify_error:
+            error_type = type(verify_error).__name__
+            error_msg = str(verify_error) or repr(verify_error)
+            print(f"Stripe webhook signature/payload error: {error_type}: {error_msg}")
+            print(traceback.format_exc())
+            return jsonify({"error": f"{error_type}: {error_msg}"}), 400
 
         if event["type"] != "checkout.session.completed":
             return jsonify({"received": True, "ignored": event["type"]}), 200
@@ -506,8 +507,11 @@ def stripe_webhook():
         return jsonify({"success": True, "submission_id": submission_id}), 200
 
     except Exception as e:
-        print(f"Stripe webhook error: {e}")
-        return jsonify({"error": str(e)}), 500
+        error_type = type(e).__name__
+        error_msg = str(e) or repr(e)
+        print(f"Stripe webhook error: {error_type}: {error_msg}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"{error_type}: {error_msg}"}), 500
 
 
 @app.route("/webhook", methods=["POST"])
