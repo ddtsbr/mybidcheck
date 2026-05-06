@@ -477,8 +477,18 @@ def stripe_webhook():
             return jsonify({"received": True, "ignored": event["type"]}), 200
 
         session = event["data"]["object"]
-        submission_id = session.get("client_reference_id")
-        stripe_session_id = session.get("id", "unknown")
+
+        # Stripe's StripeObject doesn't expose .get() like a plain dict does.
+        # Use bracket access with try/except instead.
+        try:
+            submission_id = session["client_reference_id"]
+        except KeyError:
+            submission_id = None
+
+        try:
+            stripe_session_id = session["id"]
+        except KeyError:
+            stripe_session_id = "unknown"
 
         if not submission_id:
             print(f"Stripe payment without submission_id: {stripe_session_id}")
