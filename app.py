@@ -2,9 +2,11 @@ import os
 import json
 import time
 import base64
+import sqlite3
 import httpx
 import anthropic
 import sendgrid
+import stripe
 from sendgrid.helpers.mail import Mail
 from flask import Flask, request, jsonify
 
@@ -12,8 +14,73 @@ app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
 FROM_EMAIL = "support@mybidcheck.com"
 NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "support@mybidcheck.com")
+
+# ---------------------------------------------------------------------------
+# Storage: SQLite for pending Typeform submissions
+# ---------------------------------------------------------------------------
+# Railway's persistent volume is typically mounted at /data. Fall back to a
+# local file if not available (e.g. for local testing).
+DB_PATH = os.environ.get("DB_PATH", "/data/pending.db")
+if not os.path.exists(os.path.dirname(DB_PATH)):
+    DB_PATH = "pending.db"
+
+
+def db_init():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_submissions (
+            submission_id TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            processed INTEGER DEFAULT 0,
+            created_at INTEGER DEFAULT (strftime('%s', 'now'))
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def db_store_pending(submission_id, payload):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT OR REPLACE INTO pending_submissions (submission_id, payload, processed) VALUES (?, ?, 0)",
+        (submission_id, json.dumps(payload))
+    )
+    conn.commit()
+    conn.close()
+
+
+def db_get_pending(submission_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute(
+        "SELECT payload, processed FROM pending_submissions WHERE submission_id = ?",
+        (submission_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"payload": json.loads(row[0]), "processed": bool(row[1])}
+    return None
+
+
+def db_mark_processed(submission_id):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "UPDATE pending_submissions SET processed = 1 WHERE submission_id = ?",
+        (submission_id,)
+    )
+    conn.commit()
+    conn.close()
+
+
+db_init()
+
+
+# ---------------------------------------------------------------------------
+# Existing helpers (unchanged from the original app.py)
+# ---------------------------------------------------------------------------
 
 def download_file(url):
     response = httpx.get(url, timeout=30)
@@ -191,6 +258,35 @@ def build_email_html(name, service_type, result):
 </html>"""
 
 
+def send_report_email(customer_email, customer_name, service_type, result):
+    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+    html = build_email_html(customer_name, service_type, result)
+    message = Mail(
+        from_email=FROM_EMAIL,
+        to_emails=customer_email,
+        subject=f"Your MyBidCheck Report — {service_type}",
+        html_content=html
+    )
+    sg.send(message)
+
+
+def send_notification_email(customer_name, customer_email, service_type, result):
+    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+    message = Mail(
+        from_email=FROM_EMAIL,
+        to_emails=NOTIFY_EMAIL,
+        subject=f"New Report Sent — {customer_name} ({service_type})",
+        html_content=f"""
+        <p><strong>New report delivered!</strong></p>
+        <p>Customer: {customer_name} ({customer_email})</p>
+        <p>Service: {service_type}</p>
+        <p>Verdict: {result.get('verdictDetail', '')}</p>
+        <p>Quoted: {result.get('quotedAmount', '')} | Typical: {result.get('typicalRange', '')}</p>
+        """
+    )
+    sg.send(message)
+
+
 def send_fallback_email(customer_email, customer_name, service_type):
     sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
     message = Mail(
@@ -230,101 +326,196 @@ def send_failure_alert(customer_name, customer_email, service_type, error):
         """
     )
     sg.send(message)
-    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
-    html = build_email_html(customer_name, service_type, result)
-
-    message = Mail(
-        from_email=FROM_EMAIL,
-        to_emails=customer_email,
-        subject=f"Your MyBidCheck Report — {service_type}",
-        html_content=html
-    )
-    sg.send(message)
 
 
-def send_notification_email(customer_name, customer_email, service_type, result):
+def send_orphan_payment_alert(submission_id, stripe_session_id):
+    """Alert when Stripe payment arrives but no matching Typeform submission is found."""
     sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
     message = Mail(
         from_email=FROM_EMAIL,
         to_emails=NOTIFY_EMAIL,
-        subject=f"New Report Sent — {customer_name} ({service_type})",
+        subject="ORPHAN PAYMENT — Manual follow-up needed",
         html_content=f"""
-        <p><strong>New report delivered!</strong></p>
-        <p>Customer: {customer_name} ({customer_email})</p>
-        <p>Service: {service_type}</p>
-        <p>Verdict: {result.get('verdictDetail', '')}</p>
-        <p>Quoted: {result.get('quotedAmount', '')} | Typical: {result.get('typicalRange', '')}</p>
+        <p><strong style="color:red;">Payment received without matching Typeform submission!</strong></p>
+        <p>Submission ID expected: {submission_id or '(none provided)'}</p>
+        <p>Stripe session ID: {stripe_session_id}</p>
+        <p>The customer paid but we have no Typeform data for them. Look up the payment in Stripe to find their email and contact them manually for their quote details.</p>
         """
     )
     sg.send(message)
 
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
+# ---------------------------------------------------------------------------
+# Typeform payload parser (extracted from original webhook)
+# ---------------------------------------------------------------------------
+
+def parse_typeform_payload(data):
+    """Extract the customer fields we need from a Typeform webhook payload."""
+    answers = data.get("form_response", {}).get("answers", [])
+    definition = data.get("form_response", {}).get("definition", {})
+    fields = definition.get("fields", [])
+
+    field_map = {}
+    for i, field in enumerate(fields):
+        if i < len(answers):
+            field_map[field.get("title", "").lower()] = answers[i]
+
+    def get_answer(answer):
+        if not answer:
+            return ""
+        atype = answer.get("type")
+        if atype == "text":
+            return answer.get("text", "")
+        if atype == "email":
+            return answer.get("email", "")
+        if atype == "choice":
+            return answer.get("choice", {}).get("label", "")
+        return str(answer.get(atype, ""))
+
+    customer_name = ""
+    customer_email = ""
+    region = ""
+    service_type = ""
+    quote_text = ""
+    file_url = ""
+
+    for title, answer in field_map.items():
+        val = get_answer(answer)
+        if "name" in title:
+            customer_name = val
+        elif "email" in title:
+            customer_email = val
+        elif "city" in title or "region" in title:
+            region = val
+        elif "service" in title or "type" in title:
+            service_type = val
+        elif "quote" in title or "paste" in title or "detail" in title:
+            quote_text = val
+        elif "upload" in title or "document" in title or "file" in title:
+            answer_obj = field_map.get(title, {})
+            if answer_obj.get("type") == "file_url":
+                file_url = answer_obj.get("file_url", "")
+
+    return {
+        "customer_name": customer_name,
+        "customer_email": customer_email,
+        "region": region,
+        "service_type": service_type,
+        "quote_text": quote_text,
+        "file_url": file_url,
+    }
+
+
+def process_paid_submission(payload):
+    """Run analysis and send emails for a paid, completed Typeform submission."""
+    parsed = parse_typeform_payload(payload)
+    customer_name = parsed["customer_name"]
+    customer_email = parsed["customer_email"]
+    region = parsed["region"]
+    service_type = parsed["service_type"]
+    quote_text = parsed["quote_text"]
+    file_url = parsed["file_url"]
+
+    if not customer_email or (not quote_text and not file_url):
+        print(f"Submission missing required fields: email={bool(customer_email)}, quote={bool(quote_text)}, file={bool(file_url)}")
+        return
+
+    try:
+        result = analyze_quote(customer_name, region, service_type, quote_text, file_url)
+        send_report_email(customer_email, customer_name, service_type, result)
+        send_notification_email(customer_name, customer_email, service_type, result)
+    except Exception as analysis_error:
+        print(f"Analysis failed after retries: {analysis_error}")
+        send_fallback_email(customer_email, customer_name, service_type)
+        send_failure_alert(customer_name, customer_email, service_type, str(analysis_error))
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.route("/typeform-webhook", methods=["POST"])
+def typeform_webhook():
+    """Receive Typeform submissions and store them as PENDING. No analysis yet."""
     try:
         data = request.json
-        answers = data.get("form_response", {}).get("answers", [])
-        definition = data.get("form_response", {}).get("definition", {})
-        fields = definition.get("fields", [])
+        submission_id = data.get("form_response", {}).get("token")
 
-        field_map = {}
-        for i, field in enumerate(fields):
-            if i < len(answers):
-                field_map[field.get("title", "").lower()] = answers[i]
+        if not submission_id:
+            print("Typeform webhook received without submission token")
+            return jsonify({"error": "Missing submission token"}), 400
 
-        def get_answer(answer):
-            if not answer:
-                return ""
-            atype = answer.get("type")
-            if atype == "text":
-                return answer.get("text", "")
-            if atype == "email":
-                return answer.get("email", "")
-            if atype == "choice":
-                return answer.get("choice", {}).get("label", "")
-            return str(answer.get(atype, ""))
-
-        customer_name = ""
-        customer_email = ""
-        region = ""
-        service_type = ""
-        quote_text = ""
-        file_url = ""
-
-        for title, answer in field_map.items():
-            val = get_answer(answer)
-            if "name" in title:
-                customer_name = val
-            elif "email" in title:
-                customer_email = val
-            elif "city" in title or "region" in title:
-                region = val
-            elif "service" in title or "type" in title:
-                service_type = val
-            elif "quote" in title or "paste" in title or "detail" in title:
-                quote_text = val
-            elif "upload" in title or "document" in title or "file" in title:
-                answer_obj = field_map.get(title, {})
-                if answer_obj.get("type") == "file_url":
-                    file_url = answer_obj.get("file_url", "")
-
-        if not customer_email or (not quote_text and not file_url):
-            return jsonify({"error": "Missing required fields"}), 400
-
-        try:
-            result = analyze_quote(customer_name, region, service_type, quote_text, file_url)
-            send_report_email(customer_email, customer_name, service_type, result)
-            send_notification_email(customer_name, customer_email, service_type, result)
-        except Exception as analysis_error:
-            print(f"Analysis failed after retries: {analysis_error}")
-            send_fallback_email(customer_email, customer_name, service_type)
-            send_failure_alert(customer_name, customer_email, service_type, str(analysis_error))
-
-        return jsonify({"success": True}), 200
+        db_store_pending(submission_id, data)
+        print(f"Stored pending submission: {submission_id}")
+        return jsonify({"success": True, "submission_id": submission_id}), 200
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Typeform webhook error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stripe-webhook", methods=["POST"])
+def stripe_webhook():
+    """Receive Stripe payment confirmations and trigger report generation."""
+    try:
+        payload = request.data
+        sig_header = request.headers.get("Stripe-Signature", "")
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError as e:
+            print(f"Stripe webhook: invalid payload: {e}")
+            return jsonify({"error": "Invalid payload"}), 400
+        except stripe.error.SignatureVerificationError as e:
+            print(f"Stripe webhook: signature verification failed: {e}")
+            return jsonify({"error": "Invalid signature"}), 400
+
+        if event["type"] != "checkout.session.completed":
+            return jsonify({"received": True, "ignored": event["type"]}), 200
+
+        session = event["data"]["object"]
+        submission_id = session.get("client_reference_id")
+        stripe_session_id = session.get("id", "unknown")
+
+        if not submission_id:
+            print(f"Stripe payment without submission_id: {stripe_session_id}")
+            send_orphan_payment_alert(None, stripe_session_id)
+            return jsonify({"received": True, "warning": "no submission_id"}), 200
+
+        pending = db_get_pending(submission_id)
+
+        # Retry once after a brief delay if Typeform webhook hasn't landed yet.
+        if not pending:
+            time.sleep(2)
+            pending = db_get_pending(submission_id)
+
+        if not pending:
+            print(f"Stripe payment for unknown submission: {submission_id}")
+            send_orphan_payment_alert(submission_id, stripe_session_id)
+            return jsonify({"received": True, "warning": "submission not found"}), 200
+
+        if pending["processed"]:
+            print(f"Submission already processed (duplicate webhook?): {submission_id}")
+            return jsonify({"received": True, "duplicate": True}), 200
+
+        process_paid_submission(pending["payload"])
+        db_mark_processed(submission_id)
+        print(f"Processed paid submission: {submission_id}")
+        return jsonify({"success": True, "submission_id": submission_id}), 200
+
+    except Exception as e:
+        print(f"Stripe webhook error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/webhook", methods=["POST"])
+def deprecated_webhook():
+    """Old endpoint kept for safety. Returns 410 so misconfigured callers fail loudly."""
+    return jsonify({
+        "error": "Endpoint deprecated. Typeform should now post to /typeform-webhook."
+    }), 410
 
 
 @app.route("/", methods=["GET"])
