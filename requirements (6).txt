@@ -1,0 +1,6 @@
+anthropic==0.18.1
+flask
+gunicorn
+httpx
+sendgrid
+stripe
