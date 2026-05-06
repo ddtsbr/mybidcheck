@@ -1,6 +1,6 @@
 anthropic==0.18.1
 flask
 gunicorn
-httpx
+httpx<0.28.0
 sendgrid
 stripe
