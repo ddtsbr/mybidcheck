@@ -439,18 +439,25 @@ def typeform_webhook():
     """Receive Typeform submissions and store them as PENDING. No analysis yet."""
     try:
         data = request.json
-        submission_id = data.get("form_response", {}).get("token")
 
-        if not submission_id:
-            print("Typeform webhook received without submission token")
-            return jsonify({"error": "Missing submission token"}), 400
+        # Extract the email from the Typeform payload — we store keyed by email
+        # so the Stripe webhook can look it up via client_reference_id (which is
+        # also the email, set as the redirect URL parameter on the Typeform end screen).
+        parsed = parse_typeform_payload(data)
+        email = parsed.get("customer_email", "").strip().lower()
 
-        db_store_pending(submission_id, data)
-        print(f"Stored pending submission: {submission_id}")
-        return jsonify({"success": True, "submission_id": submission_id}), 200
+        if not email:
+            print("Typeform webhook received without email — cannot key submission")
+            return jsonify({"error": "Missing email in submission"}), 400
+
+        db_store_pending(email, data)
+        print(f"Stored pending submission for: {email}")
+        return jsonify({"success": True, "email": email}), 200
 
     except Exception as e:
+        import traceback
         print(f"Typeform webhook error: {e}")
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
@@ -489,6 +496,13 @@ def stripe_webhook():
             stripe_session_id = session["id"]
         except KeyError:
             stripe_session_id = "unknown"
+
+        # The submission_id is actually the customer email (passed via Typeform's
+        # button URL as client_reference_id). Normalize for lookup: URL-decode in
+        # case Typeform encoded the @ symbol, then lowercase and trim.
+        if submission_id:
+            from urllib.parse import unquote
+            submission_id = unquote(submission_id).strip().lower()
 
         if not submission_id:
             print(f"Stripe payment without submission_id: {stripe_session_id}")
