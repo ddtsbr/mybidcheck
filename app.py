@@ -488,21 +488,36 @@ def stripe_webhook():
         # Stripe's StripeObject doesn't expose .get() like a plain dict does.
         # Use bracket access with try/except instead.
         try:
-            submission_id = session["client_reference_id"]
-        except KeyError:
-            submission_id = None
-
-        try:
             stripe_session_id = session["id"]
         except KeyError:
             stripe_session_id = "unknown"
 
-        # The submission_id is actually the customer email (passed via Typeform's
-        # button URL as client_reference_id). Normalize for lookup: URL-decode in
-        # case Typeform encoded the @ symbol, then lowercase and trim.
+        # Pull the customer's email from Stripe's payload — it's what they typed
+        # into Stripe's checkout page. We use it as the lookup key into our
+        # pending_submissions table (which is also keyed by email — the email
+        # the customer entered into Typeform).
+        submission_id = None
+        try:
+            customer_details = session["customer_details"]
+            if customer_details:
+                try:
+                    submission_id = customer_details["email"]
+                except KeyError:
+                    submission_id = None
+        except KeyError:
+            customer_details = None
+
+        # Fallback: some Stripe payloads use customer_email at the top level
+        # instead of customer_details.email.
+        if not submission_id:
+            try:
+                submission_id = session["customer_email"]
+            except KeyError:
+                submission_id = None
+
+        # Normalize: lowercase and trim (matches how we stored it in Typeform webhook).
         if submission_id:
-            from urllib.parse import unquote
-            submission_id = unquote(submission_id).strip().lower()
+            submission_id = submission_id.strip().lower()
 
         if not submission_id:
             print(f"Stripe payment without submission_id: {stripe_session_id}")
